@@ -1,0 +1,22 @@
+{
+    "name": "xuxuxuzw\/poster",
+    "description": "a poster generator",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "xuxuxuzw",
+            "email": "1005519915@qq.com"
+        }
+    ],
+    "require": {
+        "aferrandini/phpqrcode": "1.0.1",
+        "ext-gd": "*",
+        "ext-mbstring": "*",
+        "ext-curl": "*"
+    },
+    "autoload": {
+        "psr-4": {
+            "Xuxuxuzw\\Poster\\": "./src/"
+        }
+    }
+}
