@@ -114,7 +114,7 @@ class Poster
      * @param int $angle
      * @return $this
      */
-    public function addText($text, $size = 14, $xy = [0, 0], $color = [0, 0, 0], $font_file = 'msyh.ttc', $angle = 0)
+    public function addText($text, $size = 14, $xy = [0, 0], $color = [0, 0, 0], $font_file, $angle = 0)
     {
         $font_color = ImageColorAllocate($this->background_image, $color[0], $color[1], $color[2]);
         imagettftext($this->background_image, $size, $angle, $xy[0], $xy[1], $font_color, $font_file, $text);
@@ -152,6 +152,9 @@ class Poster
      */
     public function addUser($head_portrait, $nickname, $position = 0)
     {
+        empty($head_portrait['width']) && $head_portrait['width'] = 0;
+        empty($head_portrait['height']) && $head_portrait['height'] = 0;
+
         $padding = $this->user_padding;
 
         //获取昵称长度
@@ -181,11 +184,11 @@ class Poster
 
         //计算画布大小
         if ($this->user_name_location_direction == self::USER_NAME_LOCATION_RIGHT) {
-            $canvas_widht = (int)$head_portrait['width'] + $font_w + $padding;
-            $canvas_height = (int)$head_portrait['height'];
+            $canvas_widht = $head_portrait['width'] + $font_w + $padding;
+            $canvas_height = $head_portrait['height'] > $font_h ? $head_portrait['height'] : $font_h + $padding;
         } else {
-            $canvas_widht = (int)$head_portrait['width'] > $font_w ? (int)$head_portrait['width'] : $font_w;
-            $canvas_height = (int)$head_portrait['height'] + $font_h + $padding;
+            $canvas_widht = $head_portrait['width'] > $font_w ? $head_portrait['width'] : $font_w;
+            $canvas_height = $head_portrait['height'] + $font_h + $padding;
         }
 
         $canvas_center_x = $canvas_widht / 2;
@@ -208,7 +211,7 @@ class Poster
             if (in_array($position, [3, 4])) {
                 //右
                 //图片位置
-                $avatar_x = $canvas_widht - (int)$head_portrait['width'];
+                $avatar_x = $canvas_widht - $head_portrait['width'];
                 $avatar_y = 0;
                 //文字位置
                 $nickname_x = 0;
@@ -219,13 +222,13 @@ class Poster
                 $avatar_x = 0;
                 $avatar_y = 0;
                 //文字位置
-                $nickname_x = (int)$head_portrait['width'] + $padding;
+                $nickname_x = $head_portrait['width'] + $padding;
                 $nickname_y = $canvas_center_y;
             }
         } else {
             //昵称在头像下方
             //图片位置
-            $avatar_x = $canvas_center_x - ((int)$head_portrait['width'] / 2);
+            $avatar_x = $canvas_center_x - ($head_portrait['width'] / 2);
             $avatar_y = 0;
 
             //文字位置
@@ -233,10 +236,13 @@ class Poster
             $nickname_y = $canvas_height - $font_h + $padding / 2;
         }
         //图片与文字合并
-        list($avatar_w, $avatar_h) = getimagesize($head_portrait['img_path']);
-        $avatar = $this->createImageFromFile($head_portrait['img_path']);
-        imagecopyresized($canvas, $avatar, $avatar_x, $avatar_y, 0, 0, $head_portrait['width'], $head_portrait['height'], $avatar_w, $avatar_h);
-        imagedestroy($avatar);
+        if (!empty($head_portrait['img_path'])) {
+            list($avatar_w, $avatar_h) = getimagesize($head_portrait['img_path']);
+            $avatar = $this->createImageFromFile($head_portrait['img_path']);
+            imagecopyresized($canvas, $avatar, $avatar_x, $avatar_y, 0, 0, $head_portrait['width'], $head_portrait['height'], $avatar_w, $avatar_h);
+            imagedestroy($avatar);
+        }
+
 
         for ($i = 0; $i < count($text_list); $i++) {
             if ($i > 0) {
