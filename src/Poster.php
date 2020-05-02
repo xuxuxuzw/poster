@@ -10,7 +10,7 @@ class Poster
     public $background_image_h;
     public $background_image_center_x;//中心点x坐标
     public $background_image_center_y;//中心点y坐标
-    public $multiple = 1;//推广海报的比例
+    //public $multiple = 1;//推广海报的比例
     public $max_nickname_width;//最大昵称宽度
     public $max_nickname_line_number = 2;//两行
 
@@ -40,7 +40,13 @@ class Poster
     public $user_nickname_position = null;
 
 
-    public function __construct($width, $height, $background_image_color = [100, 150, 150])
+    /**
+     * Poster constructor.
+     * @param string $width 海报宽度
+     * @param string $height 海报高度
+     * @param array $background_image_color 16进制背景颜色 #cccccc
+     */
+    public function __construct($width, $height, $background_image_color = '#cccccc')
     {
         $this->createBg($width, $height, $background_image_color);
 
@@ -81,6 +87,8 @@ class Poster
      */
     protected function createBg($width, $height, $background_image_color)
     {
+        $background_image_color = self::hex2rgb($background_image_color, 0, true);
+
         $this->background_image = imagecreatetruecolor($width, $height);
         $canvas = imagecolorallocate($this->background_image, $background_image_color[0], $background_image_color[1], $background_image_color[2]);
         imagefill($this->background_image, 0, 0, $canvas);
@@ -89,9 +97,9 @@ class Poster
     /**
      * 添加图片
      * User : xuzhaowen
-     * @param $img_path
-     * @param array $xy
-     * @param array $size_wh
+     * @param string $img_path 图片路径
+     * @param array $xy 坐标
+     * @param array $size_wh 宽度高度
      * @return $this
      */
     public function addImage($img_path, $xy = [0, 0], $size_wh = [100, 100])
@@ -104,50 +112,89 @@ class Poster
     }
 
     /**
-     * 添加文字
+     * 添加图片资源
      * User : xuzhaowen
-     * @param $text
-     * @param int $size
-     * @param array $xy
-     * @param array $color
-     * @param string $font_file
-     * @param int $angle
+     * @param $imageResource 图片资源
+     * @param array $xy 坐标
+     * @param array $size_wh 宽度高度
      * @return $this
      */
-    public function addText($text, $size = 14, $xy = [0, 0], $color = [0, 0, 0], $font_file, $angle = 0)
+    public function addImageResource($imageResource, $xy = [0, 0], $size_wh = [100, 100])
     {
-        $font_color = ImageColorAllocate($this->background_image, $color[0], $color[1], $color[2]);
-        imagettftext($this->background_image, $size, $angle, $xy[0], $xy[1], $font_color, $font_file, $text);
+        imagecopyresized($this->background_image, $imageResource, $xy[0], $xy[1], 0, 0, $size_wh[0], $size_wh[1], $size_wh[0], $size_wh[1]);
+        imagedestroy($imageResource);
+        return $this;
+    }
+
+    /**
+     * 添加文字
+     * User : xuzhaowen
+     * @param string $text 文字内容
+     * @param int $size 字体大小，单位px
+     * @param array $xy 坐标
+     * @param array $color 16进制颜色 #000000
+     * @param string $font_file 字体包路径
+     * @param int $angle 透明度
+     * @return $this
+     */
+    public function addText($text, $size = 14, $xy = [0, 0], $color = '#000000', $font_file, $angle = 0)
+    {
+        $color = self::hex2rgb($color);
+
+        imagettftext($this->background_image, $size, $angle, $xy[0], $xy[1], $color, $font_file, $text);
+
         return $this;
     }
 
     /**
      * 添加二维码
      * User : xuzhaowen
-     * @param $text
-     * @param array $size_wh
-     * @param int $position
-     * @param array $xy
-     * @return Poster
+     * @param string $text 文字内容
+     * @param array $size_wh 宽度高度
+     * @param int $position 坐标方向（使用自带的7个坐标值）
+     * @param array $xy 坐标 $position 无效时有效
+     * @return $this
      */
     public function addQrCode($text, $size_wh = [100, 100], $position = 0, $xy = [0, 0])
     {
         if (!is_readable('./qrcodeImage')) mkdir('./qrcodeImage', 0700);
-        $file_name = './qrcodeImage/' . md5(time()) . '.png';
+
+        $file_name = './qrcodeImage/' . md5($text) . '.png';
+
         \PHPQRCode\QRcode::png($text, $file_name, 0, 4);
-        if (!empty($position)) {
+
+        if (in_array($position, array_keys($this->getPosition()))) {
             $this->qrcode_position = $this->getPosition($this->qrcode_margin, $size_wh[0], $size_wh[1]);
             $xy = [$this->qrcode_position[$position][self::X], $this->qrcode_position[$position][self::Y]];
         }
-        return $this->addImage($file_name, $xy, $size_wh);
+
+        $image = $this->addImage($file_name, $xy, $size_wh);
+
+        if (file_exists($file_name)) {
+            unlink($file_name);
+        }
+
+        return $image;
     }
 
     /**
      * 添加用户头像和用户昵称
      * User : xuzhaowen
-     * @param $head_portrait
-     * @param $nickname
-     * @param int $position
+     * @param array $head_portrait
+     * [
+     * 'width' => 120, //头像宽度
+     * 'height' => 120, //头像高度
+     * 'img_path' => './resource/avatar.png', //头像路径
+     * 'is_circular'=>false, //是否圆形的
+     * ]
+     * @param array $nickname
+     * [
+     * 'user_name' => 'xzw', //用户昵称
+     * 'font_path' => $font_path, //字体包路径
+     * 'font_size' => 18, //昵称字体大小
+     * 'color' => '#3399ff' //16进制颜色 #000000
+     * ]
+     * @param int $position 坐标方向（使用自带的7个坐标值）
      * @return $this
      */
     public function addUser($head_portrait, $nickname, $position = 0)
@@ -239,10 +286,12 @@ class Poster
         if (!empty($head_portrait['img_path'])) {
             list($avatar_w, $avatar_h) = getimagesize($head_portrait['img_path']);
             $avatar = $this->createImageFromFile($head_portrait['img_path']);
+            if ($head_portrait['is_circular']) {
+                $avatar = self::circularImg($avatar);
+            }
             imagecopyresized($canvas, $avatar, $avatar_x, $avatar_y, 0, 0, $head_portrait['width'], $head_portrait['height'], $avatar_w, $avatar_h);
             imagedestroy($avatar);
         }
-
 
         for ($i = 0; $i < count($text_list); $i++) {
             if ($i > 0) {
@@ -250,8 +299,9 @@ class Poster
                 $nickname_y += 3;
             }
 
-            $font_color = ImageColorAllocate($canvas, $nickname['color'][0], $nickname['color'][1], $nickname['color'][2]);
-            imagettftext($canvas, $nickname['font_size'], 0, $nickname_x, $nickname_y, $font_color, $nickname['font_path'], $text_list[$i]);
+            $nickname['color'] = self::hex2rgb($nickname['color']);
+
+            imagettftext($canvas, $nickname['font_size'], 0, $nickname_x, $nickname_y, $nickname['color'], $nickname['font_path'], $text_list[$i]);
         }
         //5、将内容合并到大图中
 
@@ -273,7 +323,7 @@ class Poster
      * @param $is_path  bool 是否路径
      * @return resource 返回图片资源
      */
-    function changeImgSize($image, $new_width, $is_path = false)
+    public function changeImgSize($image, $new_width, $is_path = false)
     {
         if ($is_path) {
             $image = imagecreatefromstring(file_get_contents($image, true));
@@ -515,6 +565,15 @@ class Poster
             imagepng($this->background_image);
         }
         imagedestroy($this->background_image);
+    }
+
+    /**
+     * 获取海报资源
+     * @return mixed
+     */
+    public function getImageResource()
+    {
+        return $this->background_image;
     }
 
     /**
